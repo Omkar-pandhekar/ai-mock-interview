@@ -2,6 +2,7 @@
 
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
+import { SignUpParams, SignInParams, User, AcademicDetails } from "@/types";
 
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
@@ -26,7 +27,7 @@ export async function setSessionCookie(idToken: string) {
 }
 
 export async function signUp(params: SignUpParams) {
-  const { uid, name, email } = params;
+  const { uid, name, email, academicDetails } = params;
 
   try {
     // check if user exists in db
@@ -38,22 +39,26 @@ export async function signUp(params: SignUpParams) {
       };
 
     // save user to db
-    await db.collection("users").doc(uid).set({
+    const userData: { name: string; email: string; academicDetails?: AcademicDetails } = {
       name,
       email,
-      // profileURL,
-      // resumeURL,
-    });
+    };
+
+    if (academicDetails) {
+      userData.academicDetails = academicDetails;
+    }
+
+    await db.collection("users").doc(uid).set(userData);
 
     return {
       success: true,
       message: "Account created successfully. Please sign in.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating user:", error);
 
     // Handle Firebase specific errors
-    if (error.code === "auth/email-already-exists") {
+    if (error && typeof error === 'object' && 'code' in error && error.code === "auth/email-already-exists") {
       return {
         success: false,
         message: "This email is already in use",
@@ -79,8 +84,8 @@ export async function signIn(params: SignInParams) {
       };
 
     await setSessionCookie(idToken);
-  } catch (error: any) {
-    console.log("");
+  } catch (error: unknown) {
+    console.error("Sign in error:", error);
 
     return {
       success: false,
